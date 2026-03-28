@@ -1,0 +1,14 @@
+[project]
+name = "charucal"
+version = "0.0.1"
+description = "A multi-camera calibration system using ChArUco boards to align and transform camera views into a single top-down perspective."
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.4.3",
+    "opencv-python>=4.13.0.92",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.6",
+]
