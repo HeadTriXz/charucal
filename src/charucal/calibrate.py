@@ -10,12 +10,12 @@ import pathlib
 import warnings
 from dataclasses import dataclass
 from datetime import datetime
-from importlib.metadata import version as _version
 from typing import TYPE_CHECKING, Any, Sequence
 
 import cv2
 import numpy as np
 
+import charucal
 from charucal.grid import CalibrationGrid
 
 if TYPE_CHECKING:
@@ -77,7 +77,7 @@ class CalibrationResult:
             path = path.with_suffix(".json")
 
         payload: dict[str, Any] = {
-            "version": _version("charucal"),
+            "version": charucal.__version__,
             "created_at": datetime.now().isoformat(),
             "ref_idx": self.ref_idx,
             "source_shapes": [list(shape) for shape in self.source_shapes],
@@ -100,9 +100,9 @@ class CalibrationResult:
 
         data = json.loads(path.read_text(encoding="utf-8"))
         version = data.get("version")
-        if version != _version("charucal"):
+        if version != charucal.__version__:
             warnings.warn(
-                f"Calibration result version '{version}' does not match current package version '{_version('charucal')}'.",
+                f"Calibration result version '{version}' does not match current package version '{charucal.__version__}'.",
                 UserWarning,
                 stacklevel=2,
             )
