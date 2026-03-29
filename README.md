@@ -110,7 +110,7 @@ ret, frame_center = cam_center.read()
 ret, frame_right = cam_right.read()
 ```
 
-![Step 1](./assets/step1.png)
+![Step 1](docs/assets/step1.png)
 
 ---
 
@@ -119,7 +119,7 @@ ret, frame_right = cam_right.read()
 Next up is locating the corners of the ChArUco board in all images. OpenCV has a built-in module for dealing with ArUco
 markers, called `cv2.aruco`. We can use this module to find the corners of the ChArUco board in each image.
 
-![Step 2](./assets/step2.png)
+![Step 2](docs/assets/step2.png)
 
 ### Step 3. Calibrate the Cameras
 
@@ -132,14 +132,14 @@ For each camera, we find the homography that maps its pixel space to the referen
 camera is selected automatically as the one with the most shared corners across all other cameras, though it can also be
 set manually.
 
-![Step 3.1](./assets/step3-1.png)
+![Step 3.1](docs/assets/step3-1.png)
 
 #### Step 3.2. Find the top-down homography
 
 We also find the homography that maps the reference camera's pixel space to real-world metres, using the ChArUco board's
 known physical dimensions.
 
-![Step 3.2](./assets/step3-2.png)
+![Step 3.2](docs/assets/step3-2.png)
 
 The result is saved to a JSON file so you don't need to recalibrate between sessions.
 
@@ -155,7 +155,7 @@ position in the real world, and from the calibration we know exactly how each of
 pixel in each source camera. We precompute this mapping for the entire output canvas so that at runtime we can produce
 the top-down image as fast as possible.
 
-![Step 4](./assets/step4.png)
+![Step 4](docs/assets/step4.png)
 
 ## Capture Tips
 
@@ -170,7 +170,7 @@ the top-down image as fast as possible.
 
 `INTER_NEAREST` is **3.16× faster** on average. Use `INTER_LINEAR` when output quality matters more than throughput.
 
-![Benchmark](./assets/benchmark.png)
+![Benchmark](docs/assets/benchmark.png)
 <sub>Benchmark results for 3 cameras (1080p) on a Ryzen 7 9800X3D (single-threaded)</sub>
 
 ## Contributing

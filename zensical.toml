@@ -1,0 +1,71 @@
+[project]
+site_name = "ChArUcal"
+site_description = "A multi-camera calibration system using ChArUco boards to align and transform camera views into a single top-down perspective."
+site_author = "Lars Knol"
+repo_url = "https://github.com/HeadTriXz/charucal"
+repo_name = "HeadTriXz/charucal"
+
+nav = [
+    { "Home" = "index.md" },
+    { "Getting Started" = [
+        { "Installation" = "getting-started/installation.md" },
+        { "Quick Start" = "getting-started/quick-start.md" },
+        { "Capture Tips" = "getting-started/capture-tips.md" },
+    ] },
+    { "How It Works" = "how-it-works.md" },
+    { "API Reference" = [
+        { "charucal.calibrate" = "api/calibrate.md" },
+        { "charucal.pattern" = "api/pattern.md" },
+        { "charucal.grid" = "api/grid.md" },
+        { "charucal.transform" = "api/transform.md" },
+    ] },
+    { "CLI" = [
+        { "Overview" = "cli/index.md" },
+        { "board" = "cli/board.md" },
+        { "calibrate" = "cli/calibrate.md" },
+        { "preview" = "cli/preview.md" },
+    ] },
+]
+
+[project.theme]
+name = "material"
+features = [
+    "navigation.indexes",
+    "navigation.sections",
+    "navigation.tabs",
+    "navigation.tabs.sticky",
+    "navigation.top",
+    "search.highlight",
+    "content.code.copy",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+toggle = { icon = "material/brightness-7", name = "Switch to dark mode" }
+
+[[project.theme.palette]]
+scheme = "slate"
+toggle = { icon = "material/brightness-4", name = "Switch to light mode" }
+
+[project.plugins.mkdocstrings.handlers.python]
+inventories = [
+    "https://docs.python.org/3/objects.inv",
+    "https://numpy.org/doc/stable/objects.inv",
+]
+paths = ["src"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "sphinx"
+inherited_members = true
+separate_signature = true
+show_source = true
+show_root_heading = true
+show_root_full_path = false
+show_signature_annotations = true
+show_symbol_type_heading = true
+show_symbol_type_toc = true
+merge_init_into_class = true
+members_order = "source"
+filters = "public"
+summary = true
+extensions = ["griffe_sphinx"]

@@ -10,5 +10,14 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "griffe-sphinx>=0.2.1",
+    "mkdocstrings[python]>=1.0.3",
     "ruff>=0.15.6",
+    "zensical>=0.0.30",
 ]
+
+[project.scripts]
+charucal = "charucal.__main__:main"
+
+[tool.uv]
+package = true
