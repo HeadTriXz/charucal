@@ -4,39 +4,46 @@ site_description = "A multi-camera calibration system using ChArUco boards to al
 site_author = "Lars Knol"
 repo_url = "https://github.com/HeadTriXz/charucal"
 repo_name = "HeadTriXz/charucal"
+copyright = "&copy; 2026 Lars Knol"
 
 nav = [
     { "Home" = "index.md" },
     { "Getting Started" = [
-        { "Installation" = "getting-started/installation.md" },
-        { "Quick Start" = "getting-started/quick-start.md" },
-        { "Capture Tips" = "getting-started/capture-tips.md" },
+        "getting-started/installation.md",
+        "getting-started/quick-start.md",
+        "getting-started/capture-tips.md"
     ] },
     { "How It Works" = "how-it-works.md" },
+    { "CLI Reference" = [
+        "cli/calibrate.md",
+        "cli/preview.md"
+    ] },
     { "API Reference" = [
-        { "charucal.calibrate" = "api/calibrate.md" },
-        { "charucal.pattern" = "api/pattern.md" },
-        { "charucal.grid" = "api/grid.md" },
-        { "charucal.transform" = "api/transform.md" },
+        "api/index.md",
+        "api/calibrate.md",
+        "api/pattern.md",
+        "api/transform.md",
+        "api/grid.md"
     ] },
-    { "CLI" = [
-        { "Overview" = "cli/index.md" },
-        { "board" = "cli/board.md" },
-        { "calibrate" = "cli/calibrate.md" },
-        { "preview" = "cli/preview.md" },
-    ] },
+    { "Troubleshooting" = "troubleshooting.md" }
 ]
 
 [project.theme]
 name = "material"
 features = [
-    "navigation.indexes",
+    "navigation.instant",
+    "navigation.instant.prefetch",
     "navigation.sections",
+    "navigation.expand",
+    "navigation.path",
+    "navigation.top",
     "navigation.tabs",
     "navigation.tabs.sticky",
-    "navigation.top",
     "search.highlight",
+    "search.suggest",
     "content.code.copy",
+    "content.code.annotate",
+    "toc.follow"
 ]
 
 [[project.theme.palette]]
@@ -46,6 +53,34 @@ toggle = { icon = "material/brightness-7", name = "Switch to dark mode" }
 [[project.theme.palette]]
 scheme = "slate"
 toggle = { icon = "material/brightness-4", name = "Switch to light mode" }
+
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.md_in_html]
+[project.markdown_extensions.tables]
+
+[project.markdown_extensions.toc]
+permalink = true
+
+[project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.pymdownx.inlinehilite]
+[project.markdown_extensions.pymdownx.keys]
+[project.markdown_extensions.pymdownx.snippets]
+[project.markdown_extensions.pymdownx.superfences]
+
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true
+
+[project.markdown_extensions.pymdownx.emoji]
+emoji_index = "zensical.extensions.emoji.twemoji"
+emoji_generator = "zensical.extensions.emoji.to_svg"
+
+[project.plugins.search]
 
 [project.plugins.mkdocstrings.handlers.python]
 inventories = [
