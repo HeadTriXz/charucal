@@ -272,7 +272,7 @@ def _build_camera_layers(
             "valid": valid_pixels[row_min:row_max, col_min:col_max],
         })
 
-    pixel_owner = np.full((trimmed_h, out_w), -1, dtype=np.int8)
+    pixel_owner = np.full((trimmed_h, out_w), -1, dtype=np.int16)
     for camera_idx in render_order:
         data = cropped_data[camera_idx]
         if data is None:
@@ -319,8 +319,8 @@ class CameraTransformer:
     #: The thread pool used for parallel warping, or ``None`` for single-threaded operation.
     _executor: ThreadPoolExecutor | None
 
-    #: The ``(width, height)`` of the input images supplied to :meth:`transform`.
-    _input_shape: tuple[int, int]
+    #: The ``(width, height)`` of the input images for each camera.
+    _input_shapes: list[tuple[int, int]]
 
     #: The ``cv2`` interpolation flag used by ``cv2.remap`` during each call to :meth:`transform`.
     _interpolation: int
@@ -360,7 +360,7 @@ class CameraTransformer:
         self._executor = _build_executor(n_jobs)
         self._interpolation = interpolation
 
-        self._input_shapes = input_shapes if input_shapes is not None else list(calibration.source_shapes)
+        self._input_shapes = list(input_shapes) if input_shapes is not None else list(calibration.source_shapes)
         if len(self._input_shapes) != calibration.num_cameras:
             raise ValueError(f"Expected {calibration.num_cameras} input shapes, got {len(self._input_shapes)}.")
 

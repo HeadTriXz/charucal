@@ -2,13 +2,27 @@
 name = "charucal"
 version = "0.0.1"
 description = "A multi-camera calibration system using ChArUco boards to align and transform camera views into a single top-down perspective."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "HeadTriXz" }]
 requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.4.3",
     "opencv-python>=4.13.0.92",
 ]
 
+[project.urls]
+Homepage = "https://github.com/HeadTriXz/charucal"
+Issues = "https://github.com/HeadTriXz/charucal/issues"
+
+[project.scripts]
+charucal = "charucal.__main__:main"
+
 [dependency-groups]
 dev = [
     "ruff>=0.15.6",
 ]
+
+[build-system]
+requires = ["uv_build>=0.11.3,<0.12"]
+build-backend = "uv_build"
