@@ -10,9 +10,25 @@ dependencies = [
     "numpy>=2.4.3",
     "opencv-python>=4.13.0.92",
 ]
+keywords = ["opencv", "top-down", "calibration", "distance-calculation", "multi-camera", "charuco", "bird-eye-view"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+    "License :: OSI Approved :: MIT License",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
 
 [project.urls]
 Homepage = "https://github.com/HeadTriXz/charucal"
+Documentation = "https://headtrixz.github.io/charucal"
 Issues = "https://github.com/HeadTriXz/charucal/issues"
 
 [project.scripts]
