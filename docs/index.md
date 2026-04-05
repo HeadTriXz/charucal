@@ -1,33 +1,74 @@
-# charucal
+---
+hide:
+  - navigation
+  - toc
+---
+
+# ChArUcal
+
+**Real-time top-down view from multiple cameras, powered by ChArUco boards.**
 
 `charucal` is a Python library designed to calibrate multi-camera systems and transform their outputs into a single
 top-down view. The library utilizes ChArUco boards for precise corner detection and OpenCV for homography estimation.
 To ensure the transformation remains efficient enough for real-time applications, `charucal` generates precomputed remap
 tables that minimize processing overhead during runtime.
 
-The project was originally developed for the Hanze team's participation in the
-[Self Driving Challenge 2024](https://github.com/HeadTriXz/SDC-2024) to assist with autonomous driving. It is now
-maintained as a standalone library for anyone who needs a real-time top-down view from multiple cameras.
+The project was originally developed for the Hanze team’s participation in the [Self Driving Challenge 2024][link-sdc]
+to assist with autonomous driving. It is now maintained as a standalone library for anyone who needs a real-time
+top-down view from multiple cameras.
 
 ---
 
-## Install
+<div class="grid cards" markdown>
 
-```bash
-pip install charucal
-```
+-   :lucide-settings-2:{ .lg .middle } **Easy to set up**
 
-Requires Python 3.12+.
+    ---
+
+    Install with pip, run the `calibrate` CLI tool once, and start transforming frames.
+
+    [:octicons-arrow-right-24: Installation](getting-started/installation.md)
+
+-   :lucide-camera:{ .lg .middle } **Works with any cameras**
+
+    ---
+
+    USB webcams, CSI cameras, video files — anything OpenCV can open.
+
+    [:octicons-arrow-right-24: Quick Start](getting-started/quick-start.md)
+
+-   :lucide-timer:{ .lg .middle } **Built for real-time**
+
+    ---
+
+    At 1000x1000 output, a single thread processes 3 simultaneous 1080p cameras at over 1200 FPS
+    with nearest-neighbor interpolation and over 400 FPS with bilinear.
+
+    [:octicons-arrow-right-24: How It Works](how-it-works.md)
+
+-   :lucide-braces:{ .lg .middle } **Python API**
+
+    ---
+
+    A handful of classes cover the full workflow: detection, calibration, and transformation.
+
+    [:octicons-arrow-right-24: API Reference](api/index.md)
+
+</div>
 
 ---
 
-## Quick example
+## Basic Usage
+
+ChArUcal's workflow is split into two phases: a one-time calibration step, and a per-frame
+transformation step that runs at runtime.
+
+**Define your board and calibrate:**
 
 ```python
 import cv2
-from charucal import CalibrationPattern, Calibrator, CalibrationResult, CameraTransformer, RenderDistance
+from charucal import CalibrationPattern, Calibrator
 
-# 1. Describe your printed board (measurements in metres)
 pattern = CalibrationPattern(
     width=10,
     height=8,
@@ -36,39 +77,42 @@ pattern = CalibrationPattern(
     aruco_dict=cv2.aruco.DICT_4X4_100,
 )
 
-# 2. Capture and calibrate
 calibrator = Calibrator(pattern)
 
 captures = []
-for frame_set in your_capture_source:   # yields list[np.ndarray], one per camera
+for frame_set in your_capture_source:
     capture = calibrator.detect(frame_set)
     if capture.is_complete:
         captures.append(capture)
 
 result = calibrator.calibrate(*captures)
 result.save("calibration.json")
+```
 
-# 3. Transform at runtime
+**Load and transform:**
+
+```python
+from charucal import CalibrationResult, CameraTransformer, RenderDistance
+
 calibration = CalibrationResult.load("calibration.json")
 transformer = CameraTransformer(
     calibration,
     render_distance=RenderDistance(front=10.0, lateral=5.0),
     output_shape=(1000, 1000),
-    interpolation=cv2.INTER_LINEAR,
 )
 
-topdown = transformer.transform(frames)   # list[np.ndarray] → np.ndarray
+topdown = transformer.transform(frames)
 ```
 
 ---
 
-## Where to go next
+## Performance
 
-| | |
-|---|---|
-| [Installation](getting-started/installation.md) | Requirements, pip install, board generation |
-| [Quick Start](getting-started/quick-start.md) | Full walkthrough with all options explained |
-| [How It Works](how-it-works.md) | Homographies, coordinate spaces, remap tables |
-| [Capture Tips](getting-started/capture-tips.md) | Common mistakes and how to avoid them |
-| [CLI Reference](cli/index.md) | `board`, `calibrate`, `preview` |
-| [API Reference](api/calibration.md) | Full Python API |
+Remap maps are precomputed once at initialization, so `transform()` does minimal work per frame.
+`INTER_NEAREST` is **3.16× faster** on average. Use `INTER_LINEAR` when output quality matters
+more than throughput.
+
+![Benchmark](assets/benchmark.png)
+<sub>3 cameras (1080p input, 1000×1000 output) · Ryzen 7 9800X3D · single-threaded</sub>
+
+[link-sdc]:https://github.com/HeadTriXz/SDC-2024
