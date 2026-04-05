@@ -1,6 +1,6 @@
 [project]
 name = "charucal"
-version = "0.1.1"
+version = "0.1.2"
 description = "A multi-camera calibration system using ChArUco boards to align and transform camera views into a single top-down perspective."
 readme = "README.md"
 license = { file = "LICENSE" }
