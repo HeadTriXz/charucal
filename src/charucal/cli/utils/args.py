@@ -94,6 +94,25 @@ def add_pattern_arguments(parser: argparse.ArgumentParser | argparse._ArgumentGr
             "the short name (4X4_100), or the raw integer constant (default: DICT_4X4_100)."
         ),
     )
+    group.add_argument(
+        "--max-marker-error",
+        type=float,
+        default=0.005,
+        metavar="FRACTION",
+        help="How far off a marker may be, as a fraction of the image diagonal (default: 0.005).",
+    )
+    group.add_argument(
+        "--min-inlier-ratio",
+        type=float,
+        default=0.8,
+        metavar="RATIO",
+        help="The share of the detected markers that has to match the board (default: 0.8).",
+    )
+    group.add_argument(
+        "--check-markers",
+        action="store_true",
+        help="Also use OpenCV's own marker check, which often rejects boards seen at a steep angle.",
+    )
 
 
 def build_cameras(args: argparse.Namespace) -> list[cv2.VideoCapture]:
@@ -138,6 +157,9 @@ def build_pattern(args: argparse.Namespace) -> CalibrationPattern:
         square_length=args.square_length,
         marker_length=args.marker_length,
         aruco_dict=args.aruco_dict,
+        max_marker_error=args.max_marker_error,
+        min_inlier_ratio=args.min_inlier_ratio,
+        check_markers=args.check_markers,
     )
 
 

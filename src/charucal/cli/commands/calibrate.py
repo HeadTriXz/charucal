@@ -31,6 +31,7 @@ from charucal.cli.utils.fmt import (
 from charucal.cli.utils.io import load_frame_set, read_frames, resolve_image_globs
 from charucal.cli.utils.term import raw_terminal, read_keypress, redraw_block
 from charucal.grid import CalibrationGrid
+from charucal.pattern import CalibrationPattern
 
 #: The duration to show temporary status messages after user actions (in seconds).
 _STATUS_DURATION: float = 2.5
@@ -68,16 +69,23 @@ def run(args: argparse.Namespace) -> int:
     :param args: The parsed argument namespace.
     :return: The process exit code.
     """
+    try:
+        pattern = build_pattern(args)
+    except ValueError as e:
+        print_error(str(e))
+        return 1
+
     if is_image_mode(args.cameras):
-        return _run_images(args)
+        return _run_images(args, pattern)
 
-    return _run_camera(args)
+    return _run_camera(args, pattern)
 
 
-def _run_camera(args: argparse.Namespace) -> int:
+def _run_camera(args: argparse.Namespace, pattern: CalibrationPattern) -> int:
     """Execute interactive live calibration from camera feeds.
 
     :param args: The parsed argument namespace.
+    :param pattern: The calibration pattern to detect.
     :return: The process exit code.
     """
     print(fmt_header("charucal  ·  calibrate", subtitle=f"Live capture  ·  {len(args.cameras)} camera(s)"))
@@ -89,7 +97,6 @@ def _run_camera(args: argparse.Namespace) -> int:
         print_error(str(e))
         return 1
 
-    pattern = build_pattern(args)
     calibrator = Calibrator(pattern, ref_idx=args.ref_camera)
 
     labels = [f"Camera {i + 1}" for i in range(len(args.cameras))]
@@ -114,10 +121,11 @@ def _run_camera(args: argparse.Namespace) -> int:
     return _calibrate_and_save(calibrator, captures, args.output)
 
 
-def _run_images(args: argparse.Namespace) -> int:
+def _run_images(args: argparse.Namespace, pattern: CalibrationPattern) -> int:
     """Execute calibration from pre-captured image sets.
 
     :param args: The parsed argument namespace.
+    :param pattern: The calibration pattern to detect.
     :return: The process exit code.
     """
     print(fmt_header("charucal  ·  calibrate", subtitle=f"Image sets  ·  {len(args.cameras)} camera(s)"))
@@ -137,7 +145,6 @@ def _run_images(args: argparse.Namespace) -> int:
     print(fmt_kv("Frames", str(num_frames)))
     print()
 
-    pattern = build_pattern(args)
     calibrator = Calibrator(pattern, ref_idx=args.ref_camera)
 
     accepted: list[CalibrationCapture] = []

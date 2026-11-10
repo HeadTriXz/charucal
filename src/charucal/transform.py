@@ -35,10 +35,10 @@ class RenderDistance:
     def __post_init__(self) -> None:
         """Initialize the render distance dataclass."""
         if self.front <= 0.0:
-            raise ValueError(f"'front' must be positive; got {self.front}.")
+            raise ValueError(f"Expected front to be positive, got {self.front}.")
 
         if self.lateral <= 0.0:
-            raise ValueError(f"'lateral' must be positive; got {self.lateral}.")
+            raise ValueError(f"Expected lateral to be positive, got {self.lateral}.")
 
 
 @dataclass
@@ -106,8 +106,8 @@ def _compute_orientation_correction(
 
     if abs(left_proj[2]) < _EPS or abs(right_proj[2]) < _EPS:
         raise RuntimeError(
-            "The reference-camera bottom row projects onto the world horizon; "
-            "cannot determine the horizontal axis direction."
+            "The bottom row of the reference camera projects onto the horizon, "
+            "so the direction of the horizontal axis cannot be determined."
         )
 
     camera_x_axis = right_proj[:2] / right_proj[2] - left_proj[:2] / left_proj[2]

@@ -158,7 +158,7 @@ def find_stitch_homography(src_grids: list[CalibrationGrid], ref_grids: list[Cal
     ref_points = np.concatenate(all_ref_points)
 
     if len(src_points) < 4:
-        raise ValueError(f"Only {len(src_points)} shared corners across all captures; at least 4 needed.")
+        raise ValueError(f"Expected at least 4 shared corners across all captures, got {len(src_points)}.")
 
     homography, inlier_mask = cv2.findHomography(src_points, ref_points, cv2.RANSAC, 5.0)
     if homography is None:

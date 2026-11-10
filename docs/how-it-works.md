@@ -36,6 +36,10 @@ Next up is locating the corners of the ChArUco board in all images. OpenCV has a
 module for dealing with ArUco markers, called `cv2.aruco`. We can use this module to find the
 corners of the ChArUco board in each image.
 
+Not every detected marker can be trusted, though. A road sign or a pattern on the ground can be
+mistaken for a marker, so we check each marker against the layout of the board and ignore the
+ones that don't fit. See [Board validation](api/pattern.md#board-validation) for the details.
+
 ![Step 2](assets/step2.png)
 
 ---
