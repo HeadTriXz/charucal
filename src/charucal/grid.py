@@ -113,10 +113,10 @@ class CalibrationGrid:
         w, h = shape[0] - 1, shape[1] - 1
         grid = np.full((h, w, 2), np.nan, dtype=np.float32)
 
-        rows = ids[:, 0] // w
-        cols = ids[:, 0] % w
+        ids = ids.reshape(-1)
+        corners = corners.reshape(-1, 2)
 
-        grid[rows, cols] = corners[:, 0]
+        grid[ids // w, ids % w] = corners
         return cls(grid)
 
     @classmethod
