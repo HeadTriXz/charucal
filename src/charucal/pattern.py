@@ -102,7 +102,7 @@ class CalibrationPattern:
         """
         _, _, marker_corners, marker_ids = self.detector.detectBoard(image)
         if marker_ids is None or len(marker_ids) == 0:
-            raise ValueError("Failed to detect ChArUco board")
+            raise ValueError("Failed to detect ChArUco board.")
 
         diagonal = math.hypot(image.shape[0], image.shape[1])
         inlier_corners, inlier_ids = self._filter_markers(marker_corners, marker_ids, diagonal)
@@ -112,7 +112,7 @@ class CalibrationPattern:
         )
 
         if charuco_corners is None or charuco_ids is None or len(charuco_ids) == 0:
-            raise ValueError("Failed to detect ChArUco board")
+            raise ValueError("Failed to detect ChArUco board.")
 
         return CalibrationGrid.from_corners(self.get_shape(), charuco_corners, charuco_ids)
 
