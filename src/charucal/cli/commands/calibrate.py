@@ -46,6 +46,11 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
 
     group = parser.add_argument_group("input")
     add_camera_arguments(group)
+    group.add_argument(
+        "--no-input",
+        action="store_true",
+        help="Use every frame where the board is found, without asking. Only works with image files.",
+    )
 
     group = parser.add_argument_group("output")
     group.add_argument(
@@ -77,6 +82,10 @@ def run(args: argparse.Namespace) -> int:
 
     if is_image_mode(args.cameras):
         return _run_images(args, pattern)
+
+    if args.no_input:
+        print_error("The --no-input flag only works with image files.")
+        return 1
 
     return _run_camera(args, pattern)
 
@@ -148,38 +157,44 @@ def _run_images(args: argparse.Namespace, pattern: CalibrationPattern) -> int:
     calibrator = Calibrator(pattern, ref_idx=args.ref_camera)
 
     accepted: list[CalibrationCapture] = []
-    skipped = 0
+    skipped: list[str] = []
     rendered_lines = 0
 
     for frame_idx in range(num_frames):
-        progress = f"  Processing  {frame_idx + 1} / {num_frames}  ·  {len(accepted)} accepted  ·  {skipped} skipped"
+        progress = (
+            f"  Processing  {frame_idx + 1} / {num_frames}  ·  {len(accepted)} accepted  ·  {len(skipped)} skipped"
+        )
         rendered_lines = redraw_block(rendered_lines, progress)
 
         frames = load_frame_set(camera_paths, frame_idx)
         if frames is None:
-            skipped += 1
+            skipped.append(f"Frame {frame_idx + 1} was skipped because its images could not be loaded.")
             continue
 
         try:
             capture = calibrator.detect(frames)
-        except ValueError:
-            skipped += 1
+        except ValueError as e:
+            skipped.append(f"Frame {frame_idx + 1} was skipped. {e}")
             continue
 
         if capture.is_complete:
             accepted.append(capture)
         else:
-            skipped += 1
+            skipped.append(f"Frame {frame_idx + 1} was skipped because the board is not visible in every camera.")
 
-    summary = f"  {Styled('●').bright_green()}  {len(accepted)} captures accepted  ·  {skipped} skipped"
+    summary = f"  {Styled('●').bright_green()}  {len(accepted)} captures accepted  ·  {len(skipped)} skipped"
     redraw_block(rendered_lines, summary)
     print("\n")
+
+    if args.no_input:
+        for reason in skipped:
+            print_warning(reason)
 
     if not accepted:
         print_error("No complete captures found. Check visibility across all cameras.")
         return 1
 
-    captures = _images_review_loop(accepted, labels)
+    captures = accepted if args.no_input else _images_review_loop(accepted, labels)
     if captures is None:
         print_warning("Aborted.")
         return 1

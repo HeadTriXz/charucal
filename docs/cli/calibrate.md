@@ -42,6 +42,7 @@ The `--camera` flag is repeated once per physical camera. Each invocation accept
 | `--camera SOURCE [SOURCE ...]` | Camera index (integer), video path, or image glob(s). Repeat for each camera. |
 | `--resolution WIDTHxHEIGHT`    | Override resolution for live cameras (e.g. `1920x1080`)                       |
 | `--fps INT`                    | Override framerate for live cameras                                           |
+| `--no-input`                   | Use every frame where the board is found, without asking. Image files only.   |
 
 ### Live cameras
 
@@ -118,6 +119,24 @@ before calibration runs.
 | ++space++                | Toggle include / exclude for the current capture |
 | ++enter++                | Run calibration on included captures             |
 | ++q++ or ++escape++      | Abort without saving                             |
+
+### Running without a terminal
+
+The review screen waits for you to press a key, so it can't be used in a script or on a CI
+server. Pass `--no-input` to skip it. Every frame where the board is found in all cameras is
+then used, and a warning is printed for each frame that was skipped. If no frame is left, the
+command exits with an error and nothing is saved.
+
+```bash
+charucal calibrate \
+  --width 10 --height 8 \
+  --square-length 0.115 --marker-length 0.086 \
+  --camera "frames/left_*.jpg" \
+  --camera "frames/right_*.jpg" \
+  --no-input
+```
+
+`--no-input` only works with image files.
 
 ---
 

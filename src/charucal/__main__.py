@@ -3,6 +3,7 @@
 __all__ = ["main"]
 
 import argparse
+import io
 import sys
 
 from charucal.cli.commands import calibrate, preview
@@ -10,6 +11,10 @@ from charucal.cli.commands import calibrate, preview
 
 def main() -> None:
     """The main entry point for the charucal CLI tools."""
+    for stream in (sys.stdout, sys.stderr):
+        if isinstance(stream, io.TextIOWrapper):
+            stream.reconfigure(encoding="utf-8")
+
     parser = argparse.ArgumentParser(
         prog="charucal",
         description="Multi-camera calibration using ChArUco boards.",
