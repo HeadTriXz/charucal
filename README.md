@@ -119,6 +119,9 @@ ret, frame_right = cam_right.read()
 Next up is locating the corners of the ChArUco board in all images. OpenCV has a built-in module for dealing with ArUco
 markers, called `cv2.aruco`. We can use this module to find the corners of the ChArUco board in each image.
 
+Not every detected marker can be trusted, though. A road sign or a pattern on the ground can be mistaken for a marker,
+so we check each marker against the layout of the board and ignore the ones that don't fit.
+
 ![Step 2](docs/assets/step2.png)
 
 ### Step 3. Calibrate the Cameras

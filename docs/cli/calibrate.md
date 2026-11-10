@@ -17,13 +17,18 @@ charucal calibrate [OPTIONS]
 
 These must match the **physical board you printed**.
 
-| Option                   | Type    | Required       | Description                                                                                                |
-|--------------------------|---------|----------------|------------------------------------------------------------------------------------------------------------|
-| `--width INT`            | integer | :lucide-check: | Number of squares along the horizontal axis                                                                |
-| `--height INT`           | integer | :lucide-check: | Number of squares along the vertical axis                                                                  |
-| `--square-length METERS` | float   | :lucide-check: | Side length of one chessboard square in meters                                                             |
-| `--marker-length METERS` | float   | :lucide-check: | Side length of the ArUco marker inside each square in meters                                               |
-| `--dict NAME`            | string  | :lucide-x:     | ArUco dictionary. Accepts `DICT_4X4_100`, `4X4_100`, or the raw integer constant (default: `DICT_4X4_100`) |
+| Option                        | Type    | Required       | Description                                                                                                |
+|-------------------------------|---------|----------------|------------------------------------------------------------------------------------------------------------|
+| `--width INT`                 | integer | :lucide-check: | Number of squares along the horizontal axis                                                                |
+| `--height INT`                | integer | :lucide-check: | Number of squares along the vertical axis                                                                  |
+| `--square-length METERS`      | float   | :lucide-check: | Side length of one chessboard square in meters                                                             |
+| `--marker-length METERS`      | float   | :lucide-check: | Side length of the ArUco marker inside each square in meters                                               |
+| `--dict NAME`                 | string  | :lucide-x:     | ArUco dictionary. Accepts `DICT_4X4_100`, `4X4_100`, or the raw integer constant (default: `DICT_4X4_100`) |
+| `--max-marker-error FRACTION` | float   | :lucide-x:     | How far off a marker may be, as a fraction of the image diagonal (default: `0.005`)                        |
+| `--min-inlier-ratio RATIO`    | float   | :lucide-x:     | Share of the detected markers that has to match the board (default: `0.8`)                                 |
+| `--check-markers`             | flag    | :lucide-x:     | Also run OpenCV's own marker check, which often rejects boards seen at a steep angle                       |
+
+The last three are explained in more detail under [Board validation](../api/pattern.md#board-validation).
 
 ---
 

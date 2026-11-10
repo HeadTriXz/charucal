@@ -18,6 +18,28 @@ The board was not visible in **all** cameras simultaneously in any of the proces
 
 ---
 
+### `"Only N of M markers match the board layout"`
+
+Too many of the detected markers don't match the layout of the board you described.
+
+**What to check:**
+
+- `--width`, `--height` and `--dict` must match the printed board. A 10×8 board entered as 8×10
+  will fail this check.
+- A board that is bent or lifted off the ground doesn't match its layout very well. Make sure it
+  lies flat.
+- With a wide-angle lens, markers near the edge of the image can be further off than the default
+  allows. Try raising `--max-marker-error`. See [Board validation](api/pattern.md#board-validation).
+
+---
+
+### `"Expected at least 4 board markers, got N"`
+
+Fewer than 4 markers were found, which is too few to tell whether they belong to the board.
+Move the board closer, or make more of it visible.
+
+---
+
 ### `"No shared corners found across any capture"`
 
 Two cameras do not share any detected corner IDs, so ChArUcal cannot compute a stitching
@@ -45,7 +67,7 @@ OpenCV's RANSAC could not find a consistent set of corner correspondences.
 
 ---
 
-### `"Only N shared corners across all captures; at least 4 needed"`
+### `"Expected at least 4 shared corners across all captures, got N"`
 
 Too few corners were matched between cameras across all captures.
 
