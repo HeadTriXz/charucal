@@ -61,14 +61,21 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
         type=float,
         default=10.0,
         metavar="METERS",
-        help="The forward render distance in meters (default: 10.0).",
+        help="How far to show in front of the origin, in meters (default: 10.0).",
     )
     group.add_argument(
-        "--lateral",
+        "--side",
         type=float,
         default=5.0,
         metavar="METERS",
-        help="The lateral render distance left and right of center in meters (default: 5.0).",
+        help="How far to show to each side of the origin, in meters (default: 5.0).",
+    )
+    group.add_argument(
+        "--rear",
+        type=float,
+        default=0.0,
+        metavar="METERS",
+        help="How far to show behind the origin, in meters (default: 0.0).",
     )
     group.add_argument(
         "--nearest",
@@ -90,7 +97,7 @@ def run(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        render_distance = RenderDistance(front=args.front, lateral=args.lateral)
+        render_distance = RenderDistance(front=args.front, side=args.side, rear=args.rear)
     except ValueError as e:
         print_error(str(e))
         return 1
@@ -273,7 +280,8 @@ def _fmt_live_state(fps: float, transformer: CameraTransformer, render_distance:
         fmt_kv("Output size", f"{w} x {h} px"),
         fmt_kv("Scale", f"{transformer.pixels_per_meter:.1f} px / m"),
         fmt_kv("Front distance", f"{render_distance.front:.1f} m"),
-        fmt_kv("Lateral distance", f"{render_distance.lateral:.1f} m"),
+        fmt_kv("Side distance", f"{render_distance.side:.1f} m"),
+        fmt_kv("Rear distance", f"{render_distance.rear:.1f} m"),
         fmt_kv("FPS", f"{fps:.1f}"),
         "",
         fmt_controls([[("Q / ESC", "Quit", True)]]),
@@ -301,7 +309,8 @@ def _fmt_image_state(
         fmt_kv("Output size", f"{w} x {h} px"),
         fmt_kv("Scale", f"{transformer.pixels_per_meter:.1f} px / m"),
         fmt_kv("Front distance", f"{render_distance.front:.1f} m"),
-        fmt_kv("Lateral distance", f"{render_distance.lateral:.1f} m"),
+        fmt_kv("Side distance", f"{render_distance.side:.1f} m"),
+        fmt_kv("Rear distance", f"{render_distance.rear:.1f} m"),
         fmt_kv("Frame", f"{frame_idx + 1} / {total}"),
         "",
         fmt_controls([

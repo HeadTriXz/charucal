@@ -26,19 +26,25 @@ _EPS = 1e-10
 class RenderDistance:
     """The physical extent of the scene captured in the top-down image."""
 
-    #: The distance in meters from the nearest visible road point to the far edge.
+    #: The distance in meters from the origin to the far edge.
     front: float
 
-    #: The distance in meters from the center of the output image to the left and right edges.
-    lateral: float
+    #: The distance in meters from the origin to each side edge.
+    side: float
+
+    #: The distance in meters from the origin to the near edge.
+    rear: float = 0.0
 
     def __post_init__(self) -> None:
         """Initialize the render distance dataclass."""
         if self.front <= 0.0:
             raise ValueError(f"Expected front to be positive, got {self.front}.")
 
-        if self.lateral <= 0.0:
-            raise ValueError(f"Expected lateral to be positive, got {self.lateral}.")
+        if self.side <= 0.0:
+            raise ValueError(f"Expected side to be positive, got {self.side}.")
+
+        if self.rear < 0.0:
+            raise ValueError(f"Expected rear to be zero or positive, got {self.rear}.")
 
 
 @dataclass
@@ -148,21 +154,42 @@ def _build_world_to_pixel_homography(
     out_w, out_h = output_shape
     camera_x, camera_y = camera_world_origin
 
-    pixels_per_meter = min(out_w / (2.0 * render_distance.lateral), out_h / render_distance.front)
+    depth = render_distance.front + render_distance.rear
+    pixels_per_meter = min(out_w / (2.0 * render_distance.side), out_h / depth)
 
-    canvas_w = int(round(2.0 * render_distance.lateral * pixels_per_meter))
-    canvas_h = int(round(render_distance.front * pixels_per_meter))
+    canvas_w = int(round(2.0 * render_distance.side * pixels_per_meter))
+    canvas_h = int(round(depth * pixels_per_meter))
 
-    origin_x = -pixels_per_meter * (camera_x - render_distance.lateral)
-    origin_y = -pixels_per_meter * (camera_y - render_distance.front)
+    offset_x = -pixels_per_meter * (camera_x - render_distance.side)
+    offset_y = -pixels_per_meter * (camera_y - render_distance.front)
 
     world_to_pixel = np.array([
-        [pixels_per_meter, 0.0, origin_x],
-        [0.0, pixels_per_meter, origin_y],
+        [pixels_per_meter, 0.0, offset_x],
+        [0.0, pixels_per_meter, offset_y],
         [0.0, 0.0, 1.0],
     ])
 
     return world_to_pixel, pixels_per_meter, (canvas_w, canvas_h)
+
+
+def _build_output_to_camera_homography(
+    camera_to_output: npt.NDArray[np.float64],
+    input_shape: tuple[int, int],
+) -> npt.NDArray[np.float64]:
+    """Build the homography mapping output pixels to camera pixels.
+
+    :param camera_to_output: The homography mapping camera pixels to output pixels.
+    :param input_shape: The ``(width, height)`` of the camera image in pixels.
+    :return: The output-to-camera homography, scaled so points in front of the camera have a positive scale.
+    """
+    width, height = input_shape
+    bottom_center = camera_to_output @ np.array([width / 2.0, float(height), 1.0])
+
+    output_to_camera = np.linalg.inv(camera_to_output)
+    if bottom_center[2] < 0.0:
+        output_to_camera = -output_to_camera
+
+    return output_to_camera
 
 
 def _build_executor(n_jobs: int) -> ThreadPoolExecutor | None:
@@ -325,8 +352,14 @@ class CameraTransformer:
     #: The ``cv2`` interpolation flag used by ``cv2.remap`` during each call to :meth:`transform`.
     _interpolation: int
 
+    #: The ``(x, y)`` position of the world origin in the output image, in pixels.
+    _origin: tuple[float, float]
+
     #: The ``(width, height)`` of the output image in pixels.
     _output_shape: tuple[int, int]
+
+    #: Per-camera homographies mapping trimmed output pixels to input pixels.
+    _output_to_camera: list[npt.NDArray[np.float64]]
 
     #: The number of output pixels per meter of world distance.
     _pixels_per_meter: float
@@ -371,6 +404,14 @@ class CameraTransformer:
             calibration, ref_to_output, canvas_shape
         )
 
+        self._output_to_camera = [
+            _build_output_to_camera_homography(homography, shape)
+            for homography, shape in zip(self._camera_to_output, self._input_shapes, strict=True)
+        ]
+
+        ref_width, ref_height = self._input_shapes[calibration.ref_idx]
+        self._origin = self._project_point(ref_width / 2.0, ref_height, calibration.ref_idx)
+
     @property
     def output_shape(self) -> tuple[int, int]:
         """The ``(width, height)`` of the output image in pixels."""
@@ -397,48 +438,119 @@ class CameraTransformer:
         """
         return meters * self._pixels_per_meter
 
-    def get_distance_forward(self, y: int) -> float:
-        """Return the forward distance in meters to a horizontal scanline.
+    def get_distance_forward(self, y: float) -> float:
+        """Return the forward distance in meters from the origin to a horizontal scanline.
 
         :param y: The y-coordinate of the scanline in the output image.
         :return: The distance in meters.
         """
-        _, out_h = self._output_shape
-        return self.get_distance(float(out_h - y))
+        _, origin_y = self._origin
+        return self.get_distance(origin_y - y)
 
-    def get_distance_to_point(self, x: int, y: int) -> float:
-        """Return the Euclidean distance in meters from the camera to an output pixel.
+    def get_distance_to_point(self, x: float, y: float) -> float:
+        """Return the Euclidean distance in meters from the origin to an output pixel.
 
         :param x: The x-coordinate of the output pixel.
         :param y: The y-coordinate of the output pixel.
         :return: The distance in meters.
         """
-        out_w, out_h = self._output_shape
-        return self.get_distance(math.hypot(x - out_w / 2.0, y - float(out_h)))
+        world_x, world_y = self.get_world_point(x, y)
+        return math.hypot(world_x, world_y)
 
     def get_distance_forward_to_camera_point(self, x: float, y: float, camera_idx: int) -> float:
-        """Return the forward (depth) distance in meters to a point in a camera image.
+        """Return the forward distance in meters from the origin to a point in a camera image.
 
-        Only the projected y-coordinate in the output image is used, so lateral offset is ignored.
+        .. warning::
+            The point is assumed to lie on the ground. A point above the ground, such as the top of an object,
+            ends up further away than it really is.
 
         :param x: The x-coordinate in the source camera image.
         :param y: The y-coordinate in the source camera image.
         :param camera_idx: The index of the source camera in the calibration.
         :return: The forward distance in meters.
         """
-        _, out_y = self.transform_point(x, y, camera_idx)
-        return self.get_distance_forward(out_y)
+        _, world_y = self.get_world_point_from_camera(x, y, camera_idx)
+        return world_y
 
     def get_distance_to_camera_point(self, x: float, y: float, camera_idx: int) -> float:
-        """Return the Euclidean distance in meters from the camera to a point in a camera image.
+        """Return the Euclidean distance in meters from the origin to a point in a camera image.
+
+        .. warning::
+            The point is assumed to lie on the ground. A point above the ground, such as the top of an object,
+            ends up further away than it really is.
 
         :param x: The x-coordinate in the source camera image.
         :param y: The y-coordinate in the source camera image.
         :param camera_idx: The index of the source camera in the calibration.
         :return: The Euclidean distance in meters.
         """
-        out_x, out_y = self.transform_point(x, y, camera_idx)
-        return self.get_distance_to_point(out_x, out_y)
+        world_x, world_y = self.get_world_point_from_camera(x, y, camera_idx)
+        return math.hypot(world_x, world_y)
+
+    def get_image_point(self, x: float, y: float) -> tuple[float, float]:
+        """Map a world point to a pixel in the output image.
+
+        :param x: The distance in meters to the right of the origin.
+        :param y: The distance in meters in front of the origin.
+        :return: The ``(x, y)`` pixel coordinates in the output image.
+        """
+        origin_x, origin_y = self._origin
+        image_x = origin_x + self.get_pixels(x)
+        image_y = origin_y - self.get_pixels(y)
+
+        return image_x, image_y
+
+    def get_world_point(self, x: float, y: float) -> tuple[float, float]:
+        """Map a pixel in the output image to a world point.
+
+        :param x: The x-coordinate of the output pixel.
+        :param y: The y-coordinate of the output pixel.
+        :return: The ``(x, y)`` world coordinates in meters from the origin.
+        """
+        origin_x, origin_y = self._origin
+        world_x = self.get_distance(x - origin_x)
+        world_y = self.get_distance(origin_y - y)
+
+        return world_x, world_y
+
+    def get_world_point_from_camera(self, x: float, y: float, camera_idx: int) -> tuple[float, float]:
+        """Map a point in a camera image to a world point.
+
+        .. warning::
+            The point is assumed to lie on the ground. A point above the ground, such as the top of an object,
+            ends up further away than it really is.
+
+        :param x: The x-coordinate in the source camera image.
+        :param y: The y-coordinate in the source camera image.
+        :param camera_idx: The index of the source camera in the calibration.
+        :return: The ``(x, y)`` world coordinates in meters from the origin.
+        """
+        image_x, image_y = self._project_point(x, y, camera_idx)
+        return self.get_world_point(image_x, image_y)
+
+    def get_camera_point(self, x: float, y: float, camera_idx: int) -> tuple[float, float]:
+        """Map a world point to a pixel in a camera image.
+
+        .. note::
+            The result can lie outside the camera image when the camera does not see the point.
+
+        :param x: The distance in meters to the right of the origin.
+        :param y: The distance in meters in front of the origin.
+        :param camera_idx: The index of the camera in the calibration.
+        :return: The ``(x, y)`` pixel coordinates in the camera image.
+        """
+        image_x, image_y = self.get_image_point(x, y)
+        homography = self._output_to_camera[camera_idx]
+
+        output_point = np.array([image_x, image_y, 1.0], dtype=np.float64)
+        camera_point = homography @ output_point
+        if camera_point[2] < _EPS:
+            raise RuntimeError(f"World point ({x}, {y}) is behind camera {camera_idx}.")
+
+        camera_x = float(camera_point[0] / camera_point[2])
+        camera_y = float(camera_point[1] / camera_point[2])
+
+        return camera_x, camera_y
 
     def transform(self, images: list[npt.NDArray[np.uint8]]) -> npt.NDArray[np.uint8]:
         """Transform a list of camera images into a single top-down view.
@@ -483,6 +595,17 @@ class CameraTransformer:
         :param camera_idx: The index of the source camera in the calibration.
         :return: The ``(x, y)`` pixel coordinates in the top-down output image.
         """
+        out_x, out_y = self._project_point(x, y, camera_idx)
+        return int(round(out_x)), int(round(out_y))
+
+    def _project_point(self, x: float, y: float, camera_idx: int) -> tuple[float, float]:
+        """Project a point from a camera image onto the output image.
+
+        :param x: The x-coordinate in the source camera image.
+        :param y: The y-coordinate in the source camera image.
+        :param camera_idx: The index of the source camera in the calibration.
+        :return: The ``(x, y)`` position in the output image, in pixels.
+        """
         homography = self._camera_to_output[camera_idx]
 
         source_point = np.array([x, y, 1.0], dtype=np.float64)
@@ -490,10 +613,10 @@ class CameraTransformer:
         if abs(output_point[2]) < _EPS:
             raise RuntimeError(f"Camera {camera_idx} point ({x}, {y}) projects onto the output horizon.")
 
-        out_x = output_point[0] / output_point[2]
-        out_y = output_point[1] / output_point[2]
+        out_x = float(output_point[0] / output_point[2])
+        out_y = float(output_point[1] / output_point[2])
 
-        return int(round(out_x)), int(round(out_y))
+        return out_x, out_y
 
     def _build_warp_layers(
         self,

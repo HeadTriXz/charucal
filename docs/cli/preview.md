@@ -31,8 +31,9 @@ charucal preview CALIBRATION [OPTIONS]
 | Option                       | Default   | Description                                                                                 |
 |------------------------------|-----------|---------------------------------------------------------------------------------------------|
 | `--output-size WIDTHxHEIGHT` | `720x720` | Maximum output canvas size in pixels                                                        |
-| `--front METERS`             | `10.0`    | Forward render distance in meters                                                           |
-| `--lateral METERS`           | `5.0`     | Lateral render distance in meters (each side)                                               |
+| `--front METERS`             | `10.0`    | How far to show in front of the origin, in meters                                           |
+| `--side METERS`              | `5.0`     | How far to show to each side of the origin, in meters                                       |
+| `--rear METERS`              | `0.0`     | How far to show behind the origin, in meters                                                |
 | `--nearest`                  | off       | Use nearest-neighbor interpolation instead of bilinear. Faster but produces blockier edges. |
 
 ---
@@ -71,7 +72,7 @@ charucal preview calibration.json \
 ```bash
 charucal preview calibration.json \
   --camera 0 --camera 1 \
-  --front 15 --lateral 7.5 \
+  --front 15 --side 7.5 \
   --output-size 1280x720
 ```
 

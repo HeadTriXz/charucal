@@ -107,15 +107,18 @@ calibration = CalibrationResult.load("calibration.json")
 
 transformer = CameraTransformer(
     calibration,
-    render_distance=RenderDistance(front=10.0, lateral=5.0),  # meters to show
+    render_distance=RenderDistance(front=10.0, side=5.0),  # meters to show
     output_shape=(1000, 1000),
 )
 ```
 
-`RenderDistance` controls how much of the scene to include:
+`RenderDistance` controls how much of the scene to include, measured from the
+[origin](../how-it-works.md#step-4-transform-the-images), the point on the ground at the bottom
+center of the reference camera's view.
 
-- `front` — how many meters ahead of the camera to show
-- `lateral` — how many meters to each side of the center to show
+- `front` — how many meters in front of the origin to show
+- `side` — how many meters to each side of the origin to show
+- `rear` — how many meters behind the origin to show (default `0`)
 
 Now call `transform()` for each new set of frames:
 
@@ -146,7 +149,7 @@ To see the output without writing any code, use the `preview` command:
 ```bash
 charucal preview calibration.json \
   --camera 0 --camera 1 --camera 2 \
-  --front 10 --lateral 5
+  --front 10 --side 5
 ```
 
 See the full [CLI reference](../cli/preview.md) for all options.
