@@ -79,7 +79,7 @@ from charucal import CalibrationResult, CameraTransformer, RenderDistance
 calibration = CalibrationResult.load("latest.json")
 transformer = CameraTransformer(
     calibration,
-    render_distance=RenderDistance(front=10.0, lateral=5.0),
+    render_distance=RenderDistance(front=10.0, side=5.0),
     output_shape=(1000, 1000),
     interpolation=cv2.INTER_LINEAR,
 )
@@ -139,7 +139,7 @@ set manually.
 
 #### Step 3.2. Find the top-down homography
 
-We also find the homography that maps the reference camera's pixel space to real-world metres, using the ChArUco board's
+We also find the homography that maps the reference camera's pixel space to real-world meters, using the ChArUco board's
 known physical dimensions.
 
 ![Step 3.2](docs/assets/step3-2.png)
@@ -148,8 +148,10 @@ The result is saved to a JSON file so you don't need to recalibrate between sess
 
 ### Step 4. Transform the Images
 
-The `RenderDistance` you provide determines what part of the world to show. It defines how many metres ahead and to each
-side of the camera the output image should cover. Since the ChArUco board can be placed at any angle, the top-down view
+The `RenderDistance` you provide determines what part of the world to show. It defines how many meters in front of,
+behind and to each side of the origin the output image should cover. The origin is the point on the ground at the
+bottom center of the reference camera's view. It's also where world coordinates start, with `x` pointing to the right
+and `y` pointing forward. Since the ChArUco board can be placed at any angle, the top-down view
 would be rotated depending on how it was placed. We correct for this so the output is always properly aligned with the
 reference camera.
 

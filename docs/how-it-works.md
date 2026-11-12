@@ -71,7 +71,10 @@ The result is saved to a JSON file so you don't need to recalibrate between sess
 ## Step 4. Transform the Images
 
 The `RenderDistance` you provide determines what part of the world to show. It defines how
-many meters ahead and to each side of the camera the output image should cover. Since the
+many meters in front of, behind and to each side of the origin the output image should cover.
+The origin is the point on the ground at the bottom center of the reference camera's view.
+It's also where world coordinates start, with `x` pointing to the right and `y` pointing
+forward. Since the
 ChArUco board can be placed at any angle, the top-down view would be rotated depending on how
 it was placed. We correct for this so the output is always properly aligned with the reference
 camera.

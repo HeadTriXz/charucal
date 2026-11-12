@@ -97,7 +97,7 @@ from charucal import CalibrationResult, CameraTransformer, RenderDistance
 calibration = CalibrationResult.load("calibration.json")
 transformer = CameraTransformer(
     calibration,
-    render_distance=RenderDistance(front=10.0, lateral=5.0),
+    render_distance=RenderDistance(front=10.0, side=5.0),
     output_shape=(1000, 1000),
 )
 
