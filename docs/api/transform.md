@@ -92,7 +92,41 @@ camera does not see can still end up outside the camera image, so check the boun
 !!! warning "Camera points must be on the ground"
     Points from a camera image are assumed to lie on the ground. A point above the ground, such as
     the top of an object, ends up further away than it really is. Use the point where the object
-    touches the ground instead.
+    touches the ground instead, or, if you know the point's height, use the
+    [camera pose](#camera-matrices-and-poses).
+
+---
+
+## Camera matrices and poses
+
+To work in 3D, use `get_camera_matrix` and `get_camera_pose`. They return each camera's matrix
+and pose in the format OpenCV uses, so you can pass them to functions like `cv2.projectPoints`.
+
+World points get a third coordinate, `z`, for the height above the ground in meters. Cameras
+use OpenCV's convention, with `x` to the right, `y` down and `z` along the optical axis.
+
+```python
+import cv2
+import numpy as np
+
+pose = transformer.get_camera_pose(0)
+matrix = transformer.get_camera_matrix(0)
+
+# Draw 3D points into the camera image
+r_vec, _ = cv2.Rodrigues(pose.rotation.T)
+t_vec = -pose.rotation.T @ pose.position
+pixels, _ = cv2.projectPoints(points_3d, r_vec, t_vec, matrix, None)
+
+# Find the world point of a camera pixel (x, y) that is 0.4 m above the ground
+ray = pose.rotation @ np.linalg.solve(matrix, [x, y, 1.0])
+point = pose.position + (0.4 - pose.position[2]) / ray[2] * ray
+```
+
+Because the board lies flat on the ground during calibration, the camera positions can be a few
+centimeters off. Points above the ground still end up within a few centimeters of where they
+really are.
+
+Both methods need a calibration made with charucal 0.3.0 or later.
 
 ---
 
@@ -107,5 +141,7 @@ is large, since the overhead of threading can outweigh the benefits in that case
 ## Reference
 
 ::: charucal.transform.RenderDistance
+
+::: charucal.transform.CameraPose
 
 ::: charucal.transform.CameraTransformer
