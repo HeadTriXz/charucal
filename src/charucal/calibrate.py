@@ -56,6 +56,10 @@ class CalibrationResult:
     #: with the origin at the ChArUco's board detected position.
     topdown_matrix: npt.NDArray[np.float64]
 
+    #: A ``(N, 3, 3)`` array of each camera's camera matrix for its ``source_shapes``, or ``None`` for calibrations
+    #: made before charucal 0.3.0.
+    camera_matrices: npt.NDArray[np.float64] | None
+
     #: The source frame dimensions ``(width, height)`` for each camera.
     source_shapes: Sequence[tuple[int, int]]
 
@@ -85,6 +89,9 @@ class CalibrationResult:
             "topdown_matrix": self.topdown_matrix.tolist(),
         }
 
+        if self.camera_matrices is not None:
+            payload["camera_matrices"] = self.camera_matrices.tolist()
+
         path.write_text(json.dumps(payload, indent=4), encoding="utf-8")
 
     @classmethod
@@ -107,12 +114,37 @@ class CalibrationResult:
                 stacklevel=2,
             )
 
+        camera_matrices = data.get("camera_matrices")
+
         return cls(
             stitch_matrices=np.array(data["stitch_matrices"], dtype=np.float64),
             topdown_matrix=np.array(data["topdown_matrix"], dtype=np.float64),
+            camera_matrices=np.array(camera_matrices, dtype=np.float64) if camera_matrices is not None else None,
             source_shapes=[tuple(shape) for shape in data["source_shapes"]],
             ref_idx=data["ref_idx"],
         )
+
+
+def _compute_conic_coefficients(g: np.ndarray, k: np.ndarray) -> np.ndarray:
+    """Expand ``g^T w k`` for the image of the absolute conic ``w = [[1, 0, a], [0, 1, b], [a, b, c]]``.
+
+    :param g: The first homography column.
+    :param k: The second homography column.
+    :return: The coefficients of ``1``, ``a``, ``b`` and ``c``.
+    """
+    return np.array([g[0] * k[0] + g[1] * k[1], g[0] * k[2] + g[2] * k[0], g[1] * k[2] + g[2] * k[1], g[2] * k[2]])
+
+
+def _compute_mean_reprojection_error(homography: np.ndarray, src: np.ndarray, dst: np.ndarray) -> float:
+    """Compute the mean reprojection error for a homography on a set of point correspondences.
+
+    :param homography: The homography to evaluate.
+    :param src: The source points in pixel coordinates.
+    :param dst: The destination points in world coordinates.
+    :return: The mean reprojection error in pixels.
+    """
+    projected = cv2.perspectiveTransform(src.reshape(-1, 1, 2), homography).reshape(-1, 2)
+    return float(np.mean(np.linalg.norm(projected - dst, axis=1)))
 
 
 def select_reference_camera(grids: list[CalibrationGrid]) -> int:
@@ -169,18 +201,6 @@ def find_stitch_homography(src_grids: list[CalibrationGrid], ref_grids: list[Cal
     return homography.astype(np.float64)
 
 
-def _mean_reprojection_error(homography: np.ndarray, src: np.ndarray, dst: np.ndarray) -> float:
-    """Compute the mean reprojection error for a homography on a set of point correspondences.
-
-    :param homography: The homography to evaluate.
-    :param src: The source points in pixel coordinates.
-    :param dst: The destination points in world coordinates.
-    :return: The mean reprojection error in pixels.
-    """
-    projected = cv2.perspectiveTransform(src.reshape(-1, 1, 2), homography).reshape(-1, 2)
-    return float(np.mean(np.linalg.norm(projected - dst, axis=1)))
-
-
 def find_topdown_homography(detected_grids: list[CalibrationGrid], pattern: CalibrationPattern) -> np.ndarray:
     """Find the homography mapping the reference camera's pixel space to world meters.
 
@@ -212,7 +232,7 @@ def find_topdown_homography(detected_grids: list[CalibrationGrid], pattern: Cali
         if num_inliers < 4:
             continue
 
-        error = _mean_reprojection_error(homography, corners[inlier_flags], world_points[inlier_flags])
+        error = _compute_mean_reprojection_error(homography, corners[inlier_flags], world_points[inlier_flags])
         if num_inliers > best_inliers or (num_inliers == best_inliers and error < best_error):
             best_homography = homography
             best_inliers = num_inliers
@@ -222,6 +242,108 @@ def find_topdown_homography(detected_grids: list[CalibrationGrid], pattern: Cali
         raise ValueError("No valid homography could be estimated from any capture.")
 
     return best_homography.astype(np.float64)
+
+
+def find_focal_length(
+    detected_grids: list[CalibrationGrid],
+    pattern: CalibrationPattern,
+    source_shape: tuple[int, int],
+) -> float:
+    """Find a camera's focal length from its view of the board on the ground.
+
+    :param detected_grids: The detected corners in the camera, one per capture.
+    :param pattern: The calibration pattern describing the physical board.
+    :param source_shape: The ``(width, height)`` of the camera image in pixels.
+    :return: The focal length in pixels.
+    """
+    world_flat = pattern.to_grid().flatten()
+    board_points = np.zeros((len(world_flat), 3), dtype=np.float32)
+    board_points[:, :2] = world_flat
+
+    object_points: list[np.ndarray] = []
+    image_points: list[np.ndarray] = []
+
+    for detected in detected_grids:
+        corners, ids = detected.visible_corners
+        if len(corners) < 4:
+            continue
+
+        object_points.append(board_points[ids.ravel()])
+        image_points.append(corners)
+
+    if not object_points:
+        raise ValueError("Expected at least 4 corners in a capture to find the focal length.")
+
+    flags = (
+        cv2.CALIB_FIX_PRINCIPAL_POINT
+        | cv2.CALIB_FIX_ASPECT_RATIO
+        | cv2.CALIB_ZERO_TANGENT_DIST
+        | cv2.CALIB_FIX_K1
+        | cv2.CALIB_FIX_K2
+        | cv2.CALIB_FIX_K3
+    )
+
+    try:
+        _, camera_matrix, *_ = cv2.calibrateCamera(
+            object_points, image_points, source_shape, np.eye(3), np.zeros(5), flags=flags
+        )
+    except cv2.error as e:
+        raise ValueError(f"Failed to find the focal length: {e}") from e
+
+    return float(camera_matrix[1, 1])
+
+
+def find_camera_matrix(
+    world_to_camera: npt.NDArray[np.float64],
+    focal_length: float,
+    source_shape: tuple[int, int],
+) -> npt.NDArray[np.float64]:
+    """Find the camera matrix that reproduces a camera's ground homography with the given focal length.
+
+    :param world_to_camera: The homography mapping ground points in meters to camera pixels.
+    :param focal_length: The focal length in pixels.
+    :param source_shape: The ``(width, height)`` of the camera image in pixels.
+    :return: The ``(3, 3)`` camera matrix.
+    """
+    width, height = source_shape
+    center = np.array([width / 2.0, height / 2.0])
+
+    pixel_to_normalized = np.array([
+        [1.0 / focal_length, 0.0, -center[0] / focal_length],
+        [0.0, 1.0 / focal_length, -center[1] / focal_length],
+        [0.0, 0.0, 1.0],
+    ])
+
+    normalized = pixel_to_normalized @ world_to_camera
+    normalized /= np.linalg.norm(normalized[:, :2])
+    h1, h2 = normalized[:, 0], normalized[:, 1]
+
+    rows = np.stack([
+        _compute_conic_coefficients(h1, h2),
+        _compute_conic_coefficients(h1, h1) - _compute_conic_coefficients(h2, h2),
+    ])
+
+    base = np.linalg.lstsq(rows[:, 1:], -rows[:, 0], rcond=None)[0]
+    direction = np.linalg.svd(rows[:, 1:])[2][-1]
+
+    quad_a = direction[:2] @ direction[:2]
+    quad_b = 2.0 * base[:2] @ direction[:2] - direction[2]
+    quad_c = base[:2] @ base[:2] + 1.0 - base[2]
+    discriminant = max(quad_b * quad_b - 4.0 * quad_a * quad_c, 0.0)
+
+    steps = [0.0]
+    if quad_a > 1e-12:
+        steps = [(-quad_b + sign * np.sqrt(discriminant)) / (2.0 * quad_a) for sign in (1.0, -1.0)]
+
+    offsets = [-(base[:2] + step * direction[:2]) for step in steps]
+    offset = min(offsets, key=lambda candidate: float(candidate @ candidate))
+
+    principal_point = center + focal_length * offset
+    return np.array([
+        [focal_length, 0.0, principal_point[0]],
+        [0.0, focal_length, principal_point[1]],
+        [0.0, 0.0, 1.0],
+    ])
 
 
 class Calibrator:
@@ -273,9 +395,19 @@ class Calibrator:
             self._pattern,
         )
 
+        camera_matrices = np.stack([
+            find_camera_matrix(
+                np.linalg.inv(topdown_matrix @ stitch_matrices[i]),
+                find_focal_length([capture.grids[i] for capture in captures], self._pattern, shape),
+                shape,
+            )
+            for i, shape in enumerate(captures[0].source_shapes)
+        ])
+
         return CalibrationResult(
             stitch_matrices=stitch_matrices,
             topdown_matrix=topdown_matrix,
+            camera_matrices=camera_matrices,
             source_shapes=captures[0].source_shapes,
             ref_idx=ref_idx,
         )

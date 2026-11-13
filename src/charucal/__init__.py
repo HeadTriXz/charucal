@@ -4,13 +4,14 @@ __version__ = version("charucal")
 
 from charucal.calibrate import CalibrationCapture, CalibrationResult, Calibrator
 from charucal.pattern import CalibrationPattern
-from charucal.transform import CameraTransformer, RenderDistance
+from charucal.transform import CameraPose, CameraTransformer, RenderDistance
 
 __all__ = [
     "CalibrationCapture",
     "CalibrationResult",
     "CalibrationPattern",
     "Calibrator",
+    "CameraPose",
     "CameraTransformer",
     "RenderDistance",
 ]

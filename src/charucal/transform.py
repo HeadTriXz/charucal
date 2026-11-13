@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__all__ = ["CameraTransformer", "RenderDistance"]
+__all__ = ["CameraPose", "CameraTransformer", "RenderDistance"]
 
 import math
 import os
@@ -45,6 +45,17 @@ class RenderDistance:
 
         if self.rear < 0.0:
             raise ValueError(f"Expected rear to be zero or positive, got {self.rear}.")
+
+
+@dataclass
+class CameraPose:
+    """The pose of a camera in the world frame."""
+
+    #: The camera's ``(x, y, z)`` position in meters, where ``z`` is its height above the ground.
+    position: npt.NDArray[np.float64]
+
+    #: The ``(3, 3)`` rotation from the camera frame to the world frame.
+    rotation: npt.NDArray[np.float64]
 
 
 @dataclass
@@ -331,6 +342,33 @@ def _build_camera_layers(
     return warp_layers, first_valid_row
 
 
+def _compute_camera_pose(
+    world_to_camera: npt.NDArray[np.float64],
+    camera_matrix: npt.NDArray[np.float64],
+) -> CameraPose:
+    """Find the pose of a camera from the homography mapping ground points to its pixels.
+
+    :param world_to_camera: The homography mapping world points on the ground to camera pixels, scaled so points
+        in front of the camera have a positive scale.
+    :param camera_matrix: The camera's camera matrix.
+    :return: The camera's pose in the world frame.
+    """
+    extrinsics = np.linalg.solve(camera_matrix, world_to_camera)
+    scale = 2.0 / (np.linalg.norm(extrinsics[:, 0]) + np.linalg.norm(extrinsics[:, 1]))
+
+    r1 = extrinsics[:, 0] * scale
+    r2 = extrinsics[:, 1] * scale
+    translation = extrinsics[:, 2] * scale
+
+    u, _, vt = np.linalg.svd(np.column_stack([r1, r2, np.cross(r1, r2)]))
+    world_to_camera_rotation = u @ vt
+
+    rotation = world_to_camera_rotation.T
+    position = -rotation @ translation
+
+    return CameraPose(position=position, rotation=rotation)
+
+
 class CameraTransformer:
     """Transforms multi-camera images into a single top-down view."""
 
@@ -462,7 +500,7 @@ class CameraTransformer:
 
         .. warning::
             The point is assumed to lie on the ground. A point above the ground, such as the top of an object,
-            ends up further away than it really is.
+            ends up further away than it really is. For a point with a known height, use :meth:`get_camera_pose`.
 
         :param x: The x-coordinate in the source camera image.
         :param y: The y-coordinate in the source camera image.
@@ -477,7 +515,7 @@ class CameraTransformer:
 
         .. warning::
             The point is assumed to lie on the ground. A point above the ground, such as the top of an object,
-            ends up further away than it really is.
+            ends up further away than it really is. For a point with a known height, use :meth:`get_camera_pose`.
 
         :param x: The x-coordinate in the source camera image.
         :param y: The y-coordinate in the source camera image.
@@ -518,7 +556,7 @@ class CameraTransformer:
 
         .. warning::
             The point is assumed to lie on the ground. A point above the ground, such as the top of an object,
-            ends up further away than it really is.
+            ends up further away than it really is. For a point with a known height, use :meth:`get_camera_pose`.
 
         :param x: The x-coordinate in the source camera image.
         :param y: The y-coordinate in the source camera image.
@@ -551,6 +589,46 @@ class CameraTransformer:
         camera_y = float(camera_point[1] / camera_point[2])
 
         return camera_x, camera_y
+
+    def get_camera_matrix(self, camera_idx: int) -> npt.NDArray[np.float64]:
+        """Return a camera's camera matrix for its input shape.
+
+        :param camera_idx: The index of the camera in the calibration.
+        :return: The ``(3, 3)`` camera matrix.
+        :raises ValueError: If the calibration has no camera matrices.
+        """
+        camera_matrices = self._calibration.camera_matrices
+        if camera_matrices is None:
+            raise ValueError(
+                "The calibration has no camera matrices. Recalibrate with charucal 0.3.0 or later to add them."
+            )
+
+        calibration_w, calibration_h = self._calibration.source_shapes[camera_idx]
+        input_w, input_h = self._input_shapes[camera_idx]
+
+        calibration_to_input = np.diag([input_w / calibration_w, input_h / calibration_h, 1.0])
+
+        return calibration_to_input @ camera_matrices[camera_idx]
+
+    def get_camera_pose(self, camera_idx: int) -> CameraPose:
+        """Return a camera's pose in the world frame.
+
+        The world frame has ``x`` to the right, ``y`` forward and ``z`` up, in meters from the origin. The camera
+        frame is OpenCV's, with ``x`` to the right, ``y`` down and ``z`` along the optical axis.
+
+        :param camera_idx: The index of the camera in the calibration.
+        :return: The camera's pose.
+        :raises ValueError: If the calibration has no camera matrices.
+        """
+        origin_x, origin_y = self._origin
+        world_to_output = np.array([
+            [self._pixels_per_meter, 0.0, origin_x],
+            [0.0, -self._pixels_per_meter, origin_y],
+            [0.0, 0.0, 1.0],
+        ])
+
+        world_to_camera = self._output_to_camera[camera_idx] @ world_to_output
+        return _compute_camera_pose(world_to_camera, self.get_camera_matrix(camera_idx))
 
     def transform(self, images: list[npt.NDArray[np.uint8]]) -> npt.NDArray[np.uint8]:
         """Transform a list of camera images into a single top-down view.
